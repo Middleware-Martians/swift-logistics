@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api xmlns="http://ws.apache.org/ns/synapse" name="CMSProxy" context="/cms-proxy">
+  <!-- Resource: soap-based createOrder transform -> cms orders endpoint -->
+  <resource methods="POST" uri-template="/createOrder">
+    <inSequence>
+      <log level="custom"><property name="MI" value="CMSProxy inSequence"/></log>
+
+      <!-- Extract XML elements from SOAP body and construct JSON -->
+      <payloadFactory media-type="json">
+        <format>{"client_id": "$1", "pickup_location":"$2", "dropoff_location":"$3"}</format>
+        <args>
+          <!-- these XPath expressions assume a SOAP body structure like:
+               <soapenv:Body><ns:createOrder><clientId>...</clientId><pickup>..</pickup><dropoff>..</dropoff></ns:createOrder></soapenv:Body>
+               adjust expressions if your SOAP differs -->
+          <arg evaluator="xml" expression="//clientId/text()"/>
+          <arg evaluator="xml" expression="//pickup/text()"/>
+          <arg evaluator="xml" expression="//dropoff/text()"/>
+        </args>
+      </payloadFactory>
+
+      <property name="HTTP_METHOD" value="POST" scope="axis2"/>
+      <send>
+        <endpoint>
+          <http uri-template="http://cms:8001/orders"/>
+        </endpoint>
+      </send>
+    </inSequence>
+
+    <outSequence>
+      <log level="custom"><property name="MI" value="CMSProxy outSequence"/></log>
+      <send/>
+    </outSequence>
+  </resource>
+
+  <!-- Endpoint: used by TCP adapter to post proprietary events to WMS -->
+  <resource methods="POST" uri-template="/wms_tcp_receive">
+    <inSequence>
+      <log level="custom"><property name="MI" value="TCP adapter message received"/></log>
+      <property name="HTTP_METHOD" value="POST" scope="axis2"/>
+      <!-- Simple pass-through JSON to WMS internal endpoint -->
+      <send>
+        <endpoint>
+          <address uri="http://wms:8002/internal/tcp_event"/>
+        </endpoint>
+      </send>
+    </inSequence>
+    <outSequence>
+      <send/>
+    </outSequence>
+  </resource>
+</api>

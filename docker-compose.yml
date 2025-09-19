@@ -1,0 +1,126 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: swift
+      POSTGRES_PASSWORD: swiftpass
+      POSTGRES_DB: swiftdb
+    volumes:
+      - ./services/cms/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.1
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.1
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3.4
+    command: ["start-dev"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
+
+  # WSO2 Micro Integrator (dev / quickstart)
+  wso2mi:
+    image: wso2/wso2mi:latest
+    container_name: wso2mi
+    ports:
+      - "8290:8290"   # MI HTTP passthrough default
+      - "9201:9201"   # MI management API
+    volumes:
+      - ./wso2/mi/repository/deployment/server/synapse-configs/default:/home/wso2carbon/wso2mi/repository/deployment/server/synapse-configs/default
+      - ./wso2/mi/repository/deployment/server/carbonapps:/home/wso2carbon/wso2mi/repository/deployment/server/carbonapps
+    depends_on:
+      - cms
+      - wms
+
+  # WSO2 API Manager (dev)
+  wso2am:
+    image: wso2/wso2am:latest
+    container_name: wso2am
+    ports:
+      - "9443:9443"   # management / publisher UI (HTTPS)
+      - "8280:8280"   # http gateway port (API traffic)
+      - "8243:8243"   # https gateway port
+    environment:
+      - WSO2_SERVER_USER=admin
+      - WSO2_SERVER_PASSWORD=admin
+    volumes:
+      - ./wso2/am:/home/wso2carbon/wso2am
+    depends_on:
+      - wso2mi
+      - keycloak
+
+  cms:
+    build: ./services/cms
+    depends_on:
+      - postgres
+      - kafka
+    environment:
+      DATABASE_URL: postgresql+asyncpg://swift:swiftpass@postgres:5432/swiftdb
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8001:8000"
+
+  wms:
+    build: ./services/wms
+    depends_on:
+      - postgres
+      - kafka
+    environment:
+      DATABASE_URL: postgresql+asyncpg://swift:swiftpass@postgres:5432/swiftdb
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8002:8000"
+
+  ros:
+    build: ./services/ros
+    depends_on:
+      - kafka
+    environment:
+      FIRESTORE_PROJECT_ID: swift-logistics-dev
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8003:8000"
+
+  notification:
+    build: ./services/notification
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8004:8000"
+
+  tcp_adapter:
+    build: ./services/tcp_adapter
+    ports:
+      - "9000:9000"
+    depends_on:
+      - wms
+
+volumes:
+  postgres-data:
