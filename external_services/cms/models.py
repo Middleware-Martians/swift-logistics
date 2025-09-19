@@ -19,3 +19,4 @@ class Order(Base):
     client_id = Column(Integer, index=True)
     status = Column(SqlEnum(Delivery_Status), nullable=False)
     weight = Column(Integer)
+    location = Column(String, nullable=True)
