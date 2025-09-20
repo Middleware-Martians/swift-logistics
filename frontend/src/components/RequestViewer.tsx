@@ -160,9 +160,9 @@ const RequestViewer: React.FC<RequestViewerProps> = ({ request }) => {
             if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
               result += `${spaces}<${key}>\n${xmlify(value, indent + 1)}${spaces}</${key}>\n`;
             } else if (Array.isArray(value)) {
-              value.forEach((item) => {
+              for (const item of value) {
                 result += `${spaces}<${key}>${typeof item === 'object' ? '\n' + xmlify(item, indent + 1) + spaces : item}</${key}>\n`;
-              });
+              }
             } else {
               result += `${spaces}<${key}>${value}</${key}>\n`;
             }

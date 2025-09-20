@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { User, UserPlus, Package, Plus, Eye } from 'lucide-react';
+import { User, UserPlus, Package, Plus } from 'lucide-react';
 import { SystemEvent } from '../App';
 
 const Container = styled.div`

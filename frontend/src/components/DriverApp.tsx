@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Truck, UserPlus, Package, MapPin, CheckCircle } from 'lucide-react';
 import { SystemEvent } from '../App';
@@ -488,7 +488,6 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
                     </DeliveryHeader>
                     <ActionButtons>
                       <Button 
-                        size="small"
                         onClick={() => updateLocation(delivery.order_id)}
                         disabled={isLoading}
                       >
@@ -498,7 +497,6 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
                       {delivery.status === 'On_The_Way' && (
                         <Button 
                           variant="success"
-                          size="small"
                           onClick={() => updateDeliveryStatus(delivery.order_id, 'Delivered')}
                           disabled={isLoading}
                         >
