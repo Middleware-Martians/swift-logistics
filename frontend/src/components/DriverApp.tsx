@@ -40,8 +40,8 @@ const TabBar = styled.div`
   margin-bottom: 20px;
 `;
 
-const Tab = styled.button<{ isActive: boolean }>`
-  background: ${props => props.isActive ? 'rgba(255, 255, 255, 0.2)' : 'transparent'};
+const Tab = styled.button<{ $isActive: boolean }>`
+  background: ${props => props.$isActive ? 'rgba(255, 255, 255, 0.2)' : 'transparent'};
   border: 1px solid rgba(255, 255, 255, 0.3);
   color: white;
   padding: 8px 16px;
@@ -167,13 +167,14 @@ const DeliveryInfo = styled.div`
   }
 `;
 
-const StatusBadge = styled.span<{ status: string }>`
+const StatusBadge = styled.span<{ $status: string }>`
   padding: 4px 8px;
   border-radius: 12px;
   font-size: 11px;
   font-weight: 500;
   background: ${props => {
-    switch (props.status) {
+    const normalizedStatus = props.$status.toLowerCase().replace(/_/g, ' ');
+    switch (normalizedStatus) {
       case 'on the way': return '#f59e0b';
       case 'delivered': return '#10b981';
       case 'returned': return '#ef4444';
@@ -209,6 +210,18 @@ const WelcomeMessage = styled.div`
   }
 `;
 
+const SuccessMessage = styled.div`
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  color: #10b981;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+`;
+
 interface DriverAppProps {
   onSystemEvent: (event: Omit<SystemEvent, 'id' | 'timestamp'>) => void;
 }
@@ -216,6 +229,9 @@ interface DriverAppProps {
 interface Driver {
   driver_id: string;
   name: string;
+  email: string;
+  phone: string;
+  license_number: string;
   available: boolean;
 }
 
@@ -239,10 +255,16 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
   const [currentDriver, setCurrentDriver] = useState<Driver | null>(null);
   const [deliveries, setDeliveries] = useState<(Delivery & Order)[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState<string | null>(null);
   
   // Form states
   const [loginForm, setLoginForm] = useState({ driver_id: '' });
-  const [signupForm, setSignupForm] = useState({ driver_id: '', name: '' });
+  const [signupForm, setSignupForm] = useState({ 
+    name: '', 
+    email: '', 
+    phone: '', 
+    license_number: '' 
+  });
 
   const apiCall = async (endpoint: string, method: string, data?: any) => {
     setIsLoading(true);
@@ -307,54 +329,157 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
       setCurrentDriver(result.data);
       setActiveTab('deliveries');
       await loadDeliveries(result.data.driver_id);
+    } else {
+      // Login failed - show error to user
+      onSystemEvent({
+        type: 'error',
+        message: `Driver login failed: ${result.data.detail || 'Driver not found'}`,
+        source: 'Driver App',
+        service: 'Driver App',
+        endpoint: `/api/wms/drivers/${loginForm.driver_id}`,
+        method: 'GET',
+        requestData: null,
+        responseData: result.data,
+        status: 'error'
+      });
     }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = await apiCall('/api/wms/drivers', 'POST', signupForm);
+    const result = await apiCall('/api/wms/drivers/signup', 'POST', signupForm);
     if (result.ok) {
+      setRegistrationSuccess(`Registration successful! Your Driver ID is: ${result.data.driver_id}`);
       setCurrentDriver(result.data);
       setActiveTab('deliveries');
+    } else {
+      // Signup failed - show error to user
+      onSystemEvent({
+        type: 'error',
+        message: `Driver registration failed: ${result.data.detail || 'Registration failed'}`,
+        source: 'Driver App',
+        service: 'Driver App',
+        endpoint: '/api/wms/drivers/signup',
+        method: 'POST',
+        requestData: { name: signupForm.name, email: signupForm.email },
+        responseData: result.data,
+        status: 'error'
+      });
     }
   };
 
   const loadDeliveries = async (driverId: string) => {
-    // In a real application, we would have an endpoint to get deliveries by driver
-    // For now, we'll simulate this by getting all orders and checking which ones have deliveries
     try {
-      const ordersResult = await apiCall('/api/cms/orders', 'GET');
-      if (ordersResult.ok) {
-        const orders = ordersResult.data;
-        const deliveriesWithOrders = [];
-        
-        for (const order of orders) {
-          try {
-            const deliveryResult = await apiCall(`/api/wms/deliveries/${order.id}`, 'GET');
-            if (deliveryResult.ok && deliveryResult.data.driver_id === driverId) {
-              deliveriesWithOrders.push({
-                ...deliveryResult.data,
-                ...order
-              });
-            }
-          } catch (error) {
-            // Delivery not found for this order, skip
-          }
-        }
-        
-        setDeliveries(deliveriesWithOrders);
+      // Get all orders from WMS
+      const ordersResult = await apiCall('/api/wms/orders', 'GET');
+      if (!ordersResult.ok) {
+        console.error('Failed to load orders:', ordersResult.data);
+        return;
       }
+      
+      // Filter orders assigned to this driver
+      const allOrders = ordersResult.data;
+      const driverOrders = allOrders.filter((order: any) => 
+        order.driver_id === driverId && order.status === 'assigned'
+      );
+      
+      // Convert WMS orders to the format expected by the component
+      const deliveriesWithOrders = driverOrders.map((order: any) => ({
+        order_id: order.order_id,
+        delivery_status: "on the way", // Default status for newly assigned orders
+        address: order.delivery_location,
+        driver_id: order.driver_id,
+        id: order.order_id, // Use order_id as id for consistency
+        client_id: order.client_name, // Use client_name as client_id for display
+        status: order.status,
+        weight: 1, // Default weight
+        location: order.delivery_location,
+        description: order.package_info
+      }));
+
+      setDeliveries(deliveriesWithOrders);
     } catch (error) {
       console.error('Error loading deliveries:', error);
+      // Add user-visible error notification
+      onSystemEvent({
+        type: 'error',
+        message: 'Failed to load deliveries',
+        source: 'Driver App',
+        service: 'Driver App',
+        endpoint: '/api/wms/orders',
+        method: 'GET',
+        requestData: null,
+        responseData: { error: error instanceof Error ? error.message : 'Unknown error' },
+        status: 'error'
+      });
     }
   };
 
   const updateDeliveryStatus = async (orderId: string, newStatus: string) => {
-    const result = await apiCall(`/api/cms/orders/${orderId}/status`, 'PUT', { status: newStatus });
-    if (result.ok) {
-      // Reload deliveries to get updated status
-      if (currentDriver) {
-        await loadDeliveries(currentDriver.driver_id);
+    if (newStatus.toLowerCase() === 'delivered') {
+      // Use WMS endpoint for delivery completion
+      const result = await apiCall(`/api/wms/orders/${orderId}/delivered`, 'POST', {});
+      if (result.ok) {
+        // Show success message
+        onSystemEvent({
+          type: 'delivery',
+          message: `Order #${orderId} marked as delivered`,
+          source: 'Driver App',
+          service: 'WMS',
+          endpoint: `/api/wms/orders/${orderId}/delivered`,
+          method: 'POST',
+          requestData: {},
+          responseData: result.data,
+          status: 'success'
+        });
+        // Reload deliveries to get updated status
+        if (currentDriver) {
+          await loadDeliveries(currentDriver.driver_id);
+        }
+      } else {
+        // Status update failed
+        onSystemEvent({
+          type: 'error',
+          message: `Failed to mark order #${orderId} as delivered: ${result.data.detail || 'Unknown error'}`,
+          source: 'Driver App',
+          service: 'WMS',
+          endpoint: `/api/wms/orders/${orderId}/delivered`,
+          method: 'POST',
+          requestData: {},
+          responseData: result.data,
+          status: 'error'
+        });
+      }
+    } else {
+      // For other status updates, use CMS
+      const result = await apiCall(`/api/cms/orders/${orderId}/status`, 'PUT', { status: newStatus });
+      if (result.ok) {
+        onSystemEvent({
+          type: 'delivery',
+          message: `Order #${orderId} status updated to ${newStatus}`,
+          source: 'Driver App',
+          service: 'CMS',
+          endpoint: `/api/cms/orders/${orderId}/status`,
+          method: 'PUT',
+          requestData: { status: newStatus },
+          responseData: result.data,
+          status: 'success'
+        });
+        if (currentDriver) {
+          await loadDeliveries(currentDriver.driver_id);
+        }
+      } else {
+        onSystemEvent({
+          type: 'error',
+          message: `Failed to update status for order #${orderId}: ${result.data.detail || 'Unknown error'}`,
+          source: 'Driver App',
+          service: 'CMS',
+          endpoint: `/api/cms/orders/${orderId}/status`,
+          method: 'PUT',
+          requestData: { status: newStatus },
+          responseData: result.data,
+          status: 'error'
+        });
       }
     }
   };
@@ -362,6 +487,7 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
   const handleLogout = () => {
     setCurrentDriver(null);
     setDeliveries([]);
+    setRegistrationSuccess(null);
     setActiveTab('login');
   };
 
@@ -373,7 +499,32 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
       longitude: -74.006 + Math.random() * 0.1
     };
     
-    await apiCall('/api/ros/location/update', 'POST', locationData);
+    const result = await apiCall('/api/ros/location/update', 'POST', locationData);
+    if (result.ok) {
+      onSystemEvent({
+        type: 'delivery',
+        message: `Location updated for order #${orderId}`,
+        source: 'Driver App',
+        service: 'Driver App',
+        endpoint: '/api/ros/location/update',
+        method: 'POST',
+        requestData: locationData,
+        responseData: result.data,
+        status: 'success'
+      });
+    } else {
+      onSystemEvent({
+        type: 'error',
+        message: `Failed to update location for order #${orderId}: ${result.data.detail || 'Unknown error'}`,
+        source: 'Driver App',
+        service: 'Driver App',
+        endpoint: '/api/ros/location/update',
+        method: 'POST',
+        requestData: locationData,
+        responseData: result.data,
+        status: 'error'
+      });
+    }
   };
 
   return (
@@ -393,20 +544,32 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
           <>
             <TabBar>
               <Tab 
-                isActive={activeTab === 'login'} 
-                onClick={() => setActiveTab('login')}
+                $isActive={activeTab === 'login'} 
+                onClick={() => {
+                  setActiveTab('login');
+                  setRegistrationSuccess(null);
+                }}
               >
                 <Truck size={16} />
                 Login
               </Tab>
               <Tab 
-                isActive={activeTab === 'signup'} 
-                onClick={() => setActiveTab('signup')}
+                $isActive={activeTab === 'signup'} 
+                onClick={() => {
+                  setActiveTab('signup');
+                  setRegistrationSuccess(null);
+                }}
               >
                 <UserPlus size={16} />
                 Register
               </Tab>
             </TabBar>
+            
+            {registrationSuccess && (
+              <SuccessMessage>
+                {registrationSuccess}
+              </SuccessMessage>
+            )}
             
             {activeTab === 'login' && (
               <FormContainer>
@@ -417,10 +580,13 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
                       type="text"
                       value={loginForm.driver_id}
                       onChange={(e) => setLoginForm({ driver_id: e.target.value })}
-                      placeholder="e.g., DRIVER001"
+                      placeholder="e.g., DRV12345678"
                       required
                     />
                   </FormGroup>
+                  <p style={{ fontSize: '12px', opacity: '0.8', margin: '8px 0' }}>
+                    Driver ID is provided after successful registration
+                  </p>
                   <Button type="submit" disabled={isLoading}>
                     <Truck size={16} />
                     {isLoading ? 'Logging in...' : 'Login'}
@@ -433,22 +599,42 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
               <FormContainer>
                 <form onSubmit={handleSignup}>
                   <FormGroup>
-                    <Label>Driver ID</Label>
-                    <Input
-                      type="text"
-                      value={signupForm.driver_id}
-                      onChange={(e) => setSignupForm({ ...signupForm, driver_id: e.target.value })}
-                      placeholder="e.g., DRIVER001"
-                      required
-                    />
-                  </FormGroup>
-                  <FormGroup>
                     <Label>Full Name</Label>
                     <Input
                       type="text"
                       value={signupForm.name}
                       onChange={(e) => setSignupForm({ ...signupForm, name: e.target.value })}
                       placeholder="Your full name"
+                      required
+                    />
+                  </FormGroup>
+                  <FormGroup>
+                    <Label>Email Address</Label>
+                    <Input
+                      type="email"
+                      value={signupForm.email}
+                      onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
+                      placeholder="your.email@example.com"
+                      required
+                    />
+                  </FormGroup>
+                  <FormGroup>
+                    <Label>Phone Number</Label>
+                    <Input
+                      type="tel"
+                      value={signupForm.phone}
+                      onChange={(e) => setSignupForm({ ...signupForm, phone: e.target.value })}
+                      placeholder="+1234567890"
+                      required
+                    />
+                  </FormGroup>
+                  <FormGroup>
+                    <Label>Driver's License Number</Label>
+                    <Input
+                      type="text"
+                      value={signupForm.license_number}
+                      onChange={(e) => setSignupForm({ ...signupForm, license_number: e.target.value })}
+                      placeholder="DL123456789"
                       required
                     />
                   </FormGroup>
@@ -464,7 +650,7 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
           <>
             <TabBar>
               <Tab 
-                isActive={activeTab === 'deliveries'} 
+                $isActive={activeTab === 'deliveries'} 
                 onClick={() => setActiveTab('deliveries')}
               >
                 <Package size={16} />
@@ -478,6 +664,8 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
             {deliveries.length === 0 ? (
               <WelcomeMessage>
                 <h4>Welcome, {currentDriver.name}!</h4>
+                <p>Driver ID: {currentDriver.driver_id}</p>
+                <p>Email: {currentDriver.email}</p>
                 <p>You have no active deliveries at the moment. New deliveries will appear here when assigned.</p>
               </WelcomeMessage>
             ) : (
@@ -491,8 +679,8 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
                         <p><MapPin size={12} style={{ display: 'inline', marginRight: '4px' }} />{delivery.address}</p>
                         <p>Weight: {delivery.weight}kg</p>
                       </DeliveryInfo>
-                      <StatusBadge status={delivery.status}>
-                        {delivery.status.replace('_', ' ')}
+                      <StatusBadge $status={delivery.status}>
+                        {delivery.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                       </StatusBadge>
                     </DeliveryHeader>
                     <ActionButtons>
@@ -503,7 +691,7 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
                         <MapPin size={14} />
                         Update Location
                       </Button>
-                      {delivery.status === 'On_The_Way' && (
+                      {delivery.status.toLowerCase().replace(/_/g, ' ') === 'on the way' && (
                         <Button 
                           variant="success"
                           onClick={() => updateDeliveryStatus(delivery.order_id, 'Delivered')}

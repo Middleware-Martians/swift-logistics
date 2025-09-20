@@ -3,8 +3,8 @@ import styled from 'styled-components';
 import ClientPortal from './components/ClientPortal';
 import SystemTracker from './components/SystemTracker';
 import DriverApp from './components/DriverApp';
-import RequestViewer from './components/RequestViewer';
-import ResponseViewer from './components/ResponseViewer';
+import RequestResponseViewer from './components/RequestResponseViewer';
+import WarehouseManagement from './components/WarehouseManagement';
 import SystemActivities from './components/SystemActivities';
 import './App.css';
 
@@ -85,20 +85,20 @@ const Logo = styled.h1`
   color: #374151;
 `;
 
-const StatusIndicator = styled.div<{ isConnected: boolean }>`
+const StatusIndicator = styled.div<{ $isConnected: boolean }>`
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: ${props => props.isConnected ? '#10b981' : '#ef4444'};
+  color: ${props => props.$isConnected ? '#10b981' : '#ef4444'};
   
   &::before {
     content: '';
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background-color: ${props => props.isConnected ? '#10b981' : '#ef4444'};
-    animation: ${props => props.isConnected ? 'pulse 2s infinite' : 'none'};
+    background-color: ${props => props.$isConnected ? '#10b981' : '#ef4444'};
+    animation: ${props => props.$isConnected ? 'pulse 2s infinite' : 'none'};
   }
   
   @keyframes pulse {
@@ -179,7 +179,7 @@ function App() {
   const addSystemEvent = (event: Omit<SystemEvent, 'id' | 'timestamp'>) => {
     const newEvent: SystemEvent = {
       ...event,
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       timestamp: new Date()
     };
     
@@ -192,7 +192,7 @@ function App() {
     <>
       <AppHeader>
         <Logo>🚚 Swift Logistics Dashboard</Logo>
-        <StatusIndicator isConnected={isConnected}>
+        <StatusIndicator $isConnected={isConnected}>
           {isConnected ? 'Connected to Middleware' : 'Middleware Offline'}
         </StatusIndicator>
       </AppHeader>
@@ -212,10 +212,10 @@ function App() {
         
         <BottomRow>
           <GridItem>
-            <RequestViewer request={currentRequest} />
+            <RequestResponseViewer request={currentRequest} response={currentResponse} />
           </GridItem>
           <GridItem>
-            <ResponseViewer response={currentResponse} />
+            <WarehouseManagement />
           </GridItem>
           <GridItem>
             <SystemActivities events={systemEvents} />

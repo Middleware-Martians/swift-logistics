@@ -56,9 +56,9 @@ const SystemDiagram = styled.div`
   justify-items: center;
 `;
 
-const SystemComponent = styled.div<{ isActive?: boolean; position: string }>`
-  background: ${props => props.isActive ? '#3b82f6' : '#e5e7eb'};
-  border: 2px solid ${props => props.isActive ? '#1d4ed8' : '#d1d5db'};
+const SystemComponent = styled.div<{ $isActive?: boolean; $position: string }>`
+  background: ${props => props.$isActive ? '#3b82f6' : '#e5e7eb'};
+  border: 2px solid ${props => props.$isActive ? '#1d4ed8' : '#d1d5db'};
   border-radius: 8px;
   padding: 12px;
   min-width: 80px;
@@ -67,12 +67,12 @@ const SystemComponent = styled.div<{ isActive?: boolean; position: string }>`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: ${props => props.isActive ? 'white' : '#374151'};
+  color: ${props => props.$isActive ? 'white' : '#374151'};
   text-align: center;
   transition: all 0.3s ease;
-  animation: ${props => props.isActive ? pulseAnimation : 'none'} 2s infinite;
+  animation: ${props => props.$isActive ? pulseAnimation : 'none'} 2s infinite;
   grid-column: ${props => {
-    switch (props.position) {
+    switch (props.$position) {
       case 'client': return '1';
       case 'driver': return '3';
       case 'middleware': return '2';
@@ -83,7 +83,7 @@ const SystemComponent = styled.div<{ isActive?: boolean; position: string }>`
     }
   }};
   grid-row: ${props => {
-    switch (props.position) {
+    switch (props.$position) {
       case 'client': return '1';
       case 'driver': return '1';
       case 'middleware': return '2';
@@ -114,14 +114,14 @@ const ComponentDescription = styled.div`
   opacity: 0.8;
 `;
 
-const ConnectionLine = styled.div<{ isActive?: boolean; direction: string }>`
+const ConnectionLine = styled.div<{ $isActive?: boolean; $direction: string }>`
   position: absolute;
-  background: ${props => props.isActive ? '#3b82f6' : '#d1d5db'};
+  background: ${props => props.$isActive ? '#3b82f6' : '#d1d5db'};
   transition: all 0.3s ease;
   z-index: 1;
   
   ${props => {
-    if (props.direction === 'client-to-middleware') {
+    if (props.$direction === 'client-to-middleware') {
       return `
         top: 33%;
         left: 33%;
@@ -129,7 +129,7 @@ const ConnectionLine = styled.div<{ isActive?: boolean; direction: string }>`
         height: 33%;
         transform: translateX(-50%);
       `;
-    } else if (props.direction === 'driver-to-middleware') {
+    } else if (props.$direction === 'driver-to-middleware') {
       return `
         top: 33%;
         right: 33%;
@@ -137,7 +137,7 @@ const ConnectionLine = styled.div<{ isActive?: boolean; direction: string }>`
         height: 33%;
         transform: translateX(50%);
       `;
-    } else if (props.direction === 'middleware-to-services') {
+    } else if (props.$direction === 'middleware-to-services') {
       return `
         top: 66%;
         left: 50%;
@@ -150,14 +150,14 @@ const ConnectionLine = styled.div<{ isActive?: boolean; direction: string }>`
   }}
 `;
 
-const DataFlow = styled.div<{ isActive?: boolean }>`
+const DataFlow = styled.div<{ $isActive?: boolean }>`
   position: absolute;
   width: 6px;
   height: 6px;
   background: #3b82f6;
   border-radius: 50%;
-  opacity: ${props => props.isActive ? 1 : 0};
-  animation: ${props => props.isActive ? flowAnimation : 'none'} 2s infinite;
+  opacity: ${props => props.$isActive ? 1 : 0};
+  animation: ${props => props.$isActive ? flowAnimation : 'none'} 2s infinite;
   z-index: 10;
   transform: translateX(-50%) translateY(-50%);
 `;
@@ -237,8 +237,8 @@ const SystemTracker: React.FC<SystemTrackerProps> = ({ events }) => {
         <SystemDiagram>
           {/* Client Portal */}
           <SystemComponent 
-            isActive={activeComponents.has('client')} 
-            position="client"
+            $isActive={activeComponents.has('client')} 
+            $position="client"
           >
             <ComponentIcon>
               <Smartphone size={24} />
@@ -249,8 +249,8 @@ const SystemTracker: React.FC<SystemTrackerProps> = ({ events }) => {
 
           {/* Driver App */}
           <SystemComponent 
-            isActive={activeComponents.has('driver')} 
-            position="driver"
+            $isActive={activeComponents.has('driver')} 
+            $position="driver"
           >
             <ComponentIcon>
               <User size={24} />
@@ -261,8 +261,8 @@ const SystemTracker: React.FC<SystemTrackerProps> = ({ events }) => {
 
           {/* Middleware */}
           <SystemComponent 
-            isActive={activeComponents.has('middleware')} 
-            position="middleware"
+            $isActive={activeComponents.has('middleware')} 
+            $position="middleware"
           >
             <ComponentIcon>
               <ArrowRight size={24} />
@@ -273,8 +273,8 @@ const SystemTracker: React.FC<SystemTrackerProps> = ({ events }) => {
 
           {/* Backend Services */}
           <SystemComponent 
-            isActive={activeComponents.has('cms')} 
-            position="cms"
+            $isActive={activeComponents.has('cms')} 
+            $position="cms"
           >
             <ComponentIcon>
               <Database size={20} />
@@ -284,8 +284,8 @@ const SystemTracker: React.FC<SystemTrackerProps> = ({ events }) => {
           </SystemComponent>
 
           <SystemComponent 
-            isActive={activeComponents.has('ros')} 
-            position="ros"
+            $isActive={activeComponents.has('ros')} 
+            $position="ros"
           >
             <ComponentIcon>
               <MapPin size={20} />
@@ -295,8 +295,8 @@ const SystemTracker: React.FC<SystemTrackerProps> = ({ events }) => {
           </SystemComponent>
 
           <SystemComponent 
-            isActive={activeComponents.has('wms')} 
-            position="wms"
+            $isActive={activeComponents.has('wms')} 
+            $position="wms"
           >
             <ComponentIcon>
               <Truck size={20} />
@@ -307,25 +307,25 @@ const SystemTracker: React.FC<SystemTrackerProps> = ({ events }) => {
 
           {/* Connection Lines */}
           <ConnectionLine 
-            isActive={dataFlows.has('client-to-middleware')}
-            direction="client-to-middleware"
+            $isActive={dataFlows.has('client-to-middleware')}
+            $direction="client-to-middleware"
           />
-          <ClientDataFlow isActive={dataFlows.has('client-to-middleware')} />
+          <ClientDataFlow $isActive={dataFlows.has('client-to-middleware')} />
           
           <ConnectionLine 
-            isActive={dataFlows.has('driver-to-middleware')}
-            direction="driver-to-middleware"
+            $isActive={dataFlows.has('driver-to-middleware')}
+            $direction="driver-to-middleware"
           />
           <DriverDataFlow 
-            isActive={dataFlows.has('driver-to-middleware')}
+            $isActive={dataFlows.has('driver-to-middleware')}
           />
           
           <ConnectionLine 
-            isActive={dataFlows.has('middleware-to-services')}
-            direction="middleware-to-services"
+            $isActive={dataFlows.has('middleware-to-services')}
+            $direction="middleware-to-services"
           />
           <MiddleDataFlow 
-            isActive={dataFlows.has('middleware-to-services')}
+            $isActive={dataFlows.has('middleware-to-services')}
           />
         </SystemDiagram>
       </Content>

@@ -9,8 +9,8 @@ app.use(express.json());
 
 // Service URLs
 const CMS_BASE_URL = 'http://localhost:8000';
-const ROS_BASE_URL = 'http://localhost:8001';
-const WMS_BASE_URL = 'http://localhost:8002';
+const ROS_BASE_URL = 'http://localhost:8002';
+const WMS_BASE_URL = 'http://localhost:8001';
 
 // Helper function to log requests and responses
 const logActivity = (service, method, endpoint, requestData, responseData) => {
@@ -68,17 +68,20 @@ app.post('/api/cms/orders', async (req, res) => {
     const response = await axios.post(`${CMS_BASE_URL}/orders/`, req.body);
     logActivity('CMS', 'POST', '/orders/', null, response.data);
     
-    // Automatically create delivery in WMS
+    // Automatically create order in WMS for warehouse management
     try {
-      const deliveryData = {
+      const orderData = {
         order_id: response.data.id.toString(),
-        address: response.data.location
+        client_name: response.data.client_name || `Client-${response.data.client_id}`,
+        pickup_location: response.data.pickup_location || "Pickup Location", 
+        delivery_location: response.data.location,
+        package_info: response.data.description || "Standard Package"
       };
-      logActivity('WMS', 'POST', '/deliveries/', deliveryData, null);
-      const deliveryResponse = await axios.post(`${WMS_BASE_URL}/deliveries/`, deliveryData);
-      logActivity('WMS', 'POST', '/deliveries/', null, deliveryResponse.data);
+      logActivity('WMS', 'POST', '/orders', orderData, null);
+      const wmsOrderResponse = await axios.post(`${WMS_BASE_URL}/orders`, orderData);
+      logActivity('WMS', 'POST', '/orders', null, wmsOrderResponse.data);
     } catch (wmsError) {
-      console.error('Failed to create delivery in WMS:', wmsError.message);
+      console.error('Failed to create order in WMS:', wmsError.message);
     }
     
     res.json(response.data);
@@ -125,6 +128,23 @@ app.put('/api/cms/orders/:id/status', async (req, res) => {
     logActivity('CMS', 'PUT', `/orders/${req.params.id}/status`, req.body, null);
     const response = await axios.put(`${CMS_BASE_URL}/orders/${req.params.id}/status`, req.body);
     logActivity('CMS', 'PUT', `/orders/${req.params.id}/status`, null, response.data);
+    
+    // If order is marked as delivered, make the assigned driver available again
+    if (req.body.status === 'Delivered') {
+      try {
+        // Get delivery info to find the assigned driver
+        const deliveryResponse = await axios.get(`${WMS_BASE_URL}/deliveries/${req.params.id}`);
+        if (deliveryResponse.data && deliveryResponse.data.driver_id) {
+          // Make driver available again
+          const driverUpdateResponse = await axios.put(`${WMS_BASE_URL}/drivers/${deliveryResponse.data.driver_id}/availability`, { available: true });
+          logActivity('WMS', 'PUT', `/drivers/${deliveryResponse.data.driver_id}/availability`, { available: true }, driverUpdateResponse.data);
+        }
+      } catch (wmsError) {
+        console.error('Failed to update driver availability:', wmsError.message);
+        // Don't fail the order status update if driver availability update fails
+      }
+    }
+    
     res.json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({
@@ -234,7 +254,98 @@ app.get('/api/wms/deliveries/:orderId', async (req, res) => {
   }
 });
 
+// Driver signup endpoint
+app.post('/api/wms/drivers/signup', async (req, res) => {
+  try {
+    logActivity('WMS', 'POST', '/drivers/signup', req.body, null);
+    const response = await axios.post(`${WMS_BASE_URL}/drivers/signup`, req.body);
+    logActivity('WMS', 'POST', '/drivers/signup', null, response.data);
+    res.json(response.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({
+      error: error.message,
+      detail: error.response?.data?.detail || 'Driver signup failed'
+    });
+  }
+});
+
 // Health check endpoint
+// Warehouse Management Endpoints
+app.get('/api/wms/orders', async (req, res) => {
+  try {
+    logActivity('WMS', 'GET', '/orders', null, null);
+    const response = await axios.get(`${WMS_BASE_URL}/orders`);
+    logActivity('WMS', 'GET', '/orders', null, response.data);
+    res.json(response.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({
+      error: error.message,
+      detail: error.response?.data?.detail || 'Error fetching orders'
+    });
+  }
+});
+
+app.post('/api/wms/orders/:orderId/borrow', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    logActivity('WMS', 'POST', `/orders/${orderId}/borrow`, req.body, null);
+    const response = await axios.post(`${WMS_BASE_URL}/orders/${orderId}/borrow`, req.body);
+    logActivity('WMS', 'POST', `/orders/${orderId}/borrow`, null, response.data);
+    res.json(response.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({
+      error: error.message,
+      detail: error.response?.data?.detail || 'Error borrowing order'
+    });
+  }
+});
+
+app.post('/api/wms/orders/:orderId/assign', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    logActivity('WMS', 'POST', `/orders/${orderId}/assign`, req.body, null);
+    const response = await axios.post(`${WMS_BASE_URL}/orders/${orderId}/assign`, req.body);
+    logActivity('WMS', 'POST', `/orders/${orderId}/assign`, null, response.data);
+    res.json(response.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({
+      error: error.message,
+      detail: error.response?.data?.detail || 'Error assigning driver'
+    });
+  }
+});
+
+app.post('/api/wms/orders/:orderId/return', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    logActivity('WMS', 'POST', `/orders/${orderId}/return`, req.body, null);
+    const response = await axios.post(`${WMS_BASE_URL}/orders/${orderId}/return`, req.body);
+    logActivity('WMS', 'POST', `/orders/${orderId}/return`, null, response.data);
+    res.json(response.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({
+      error: error.message,
+      detail: error.response?.data?.detail || 'Error returning order'
+    });
+  }
+});
+
+app.post('/api/wms/orders/:orderId/delivered', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    logActivity('WMS', 'POST', `/orders/${orderId}/delivered`, req.body, null);
+    const response = await axios.post(`${WMS_BASE_URL}/orders/${orderId}/delivered`, req.body);
+    logActivity('WMS', 'POST', `/orders/${orderId}/delivered`, null, response.data);
+    res.json(response.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({
+      error: error.message,
+      detail: error.response?.data?.detail || 'Error marking order as delivered'
+    });
+  }
+});
+
+// Health Check
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 

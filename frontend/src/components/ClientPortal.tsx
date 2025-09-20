@@ -40,8 +40,8 @@ const TabBar = styled.div`
   margin-bottom: 20px;
 `;
 
-const Tab = styled.button<{ isActive: boolean }>`
-  background: ${props => props.isActive ? 'rgba(255, 255, 255, 0.2)' : 'transparent'};
+const Tab = styled.button<{ $isActive: boolean }>`
+  background: ${props => props.$isActive ? 'rgba(255, 255, 255, 0.2)' : 'transparent'};
   border: 1px solid rgba(255, 255, 255, 0.3);
   color: white;
   padding: 8px 16px;
@@ -156,16 +156,17 @@ const OrderInfo = styled.div`
   }
 `;
 
-const StatusBadge = styled.span<{ status: string }>`
+const StatusBadge = styled.span<{ $status: string }>`
   padding: 4px 8px;
   border-radius: 12px;
   font-size: 11px;
   font-weight: 500;
   background: ${props => {
-    switch (props.status) {
-      case 'On_The_Way': return '#f59e0b';
-      case 'Delivered': return '#10b981';
-      case 'Returned': return '#ef4444';
+    const normalizedStatus = props.$status.toLowerCase().replace(/_/g, ' ');
+    switch (normalizedStatus) {
+      case 'on the way': return '#f59e0b';
+      case 'delivered': return '#10b981';
+      case 'returned': return '#ef4444';
       default: return '#6b7280';
     }
   }};
@@ -263,6 +264,19 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onSystemEvent }) => {
       setCurrentClient(result.data);
       setActiveTab('orders');
       loadOrders(result.data.id);
+    } else {
+      // Login failed - show error to user via system event
+      onSystemEvent({
+        type: 'error',
+        message: `Login failed: ${result.data.detail || 'Invalid credentials'}`,
+        source: 'Client Portal',
+        service: 'Client Portal',
+        endpoint: '/api/cms/clients/login',
+        method: 'POST',
+        requestData: { name: loginForm.name },
+        responseData: result.data,
+        status: 'error'
+      });
     }
   };
 
@@ -272,6 +286,19 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onSystemEvent }) => {
     if (result.ok) {
       setCurrentClient(result.data);
       setActiveTab('orders');
+    } else {
+      // Signup failed - show error to user
+      onSystemEvent({
+        type: 'error',
+        message: `Registration failed: ${result.data.detail || 'Username already exists'}`,
+        source: 'Client Portal',
+        service: 'Client Portal',
+        endpoint: '/api/cms/clients',
+        method: 'POST',
+        requestData: { name: signupForm.name },
+        responseData: result.data,
+        status: 'error'
+      });
     }
   };
 
@@ -289,6 +316,31 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onSystemEvent }) => {
     if (result.ok) {
       setOrderForm({ weight: '', location: '' });
       loadOrders(currentClient.id);
+      // Show success message
+      onSystemEvent({
+        type: 'order',
+        message: `Order #${result.data.id} created successfully`,
+        source: 'Client Portal',
+        service: 'Client Portal',
+        endpoint: '/api/cms/orders',
+        method: 'POST',
+        requestData: orderData,
+        responseData: result.data,
+        status: 'success'
+      });
+    } else {
+      // Order creation failed
+      onSystemEvent({
+        type: 'error',
+        message: `Order creation failed: ${result.data.detail || 'Unknown error'}`,
+        source: 'Client Portal',
+        service: 'Client Portal',
+        endpoint: '/api/cms/orders',
+        method: 'POST',
+        requestData: orderData,
+        responseData: result.data,
+        status: 'error'
+      });
     }
   };
 
@@ -322,14 +374,14 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onSystemEvent }) => {
           <>
             <TabBar>
               <Tab 
-                isActive={activeTab === 'login'} 
+                $isActive={activeTab === 'login'} 
                 onClick={() => setActiveTab('login')}
               >
                 <User size={16} />
                 Login
               </Tab>
               <Tab 
-                isActive={activeTab === 'signup'} 
+                $isActive={activeTab === 'signup'} 
                 onClick={() => setActiveTab('signup')}
               >
                 <UserPlus size={16} />
@@ -399,7 +451,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onSystemEvent }) => {
           <>
             <TabBar>
               <Tab 
-                isActive={activeTab === 'orders'} 
+                $isActive={activeTab === 'orders'} 
                 onClick={() => setActiveTab('orders')}
               >
                 <Package size={16} />
@@ -447,8 +499,8 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onSystemEvent }) => {
                       <h4>Order #{order.id}</h4>
                       <p>{order.weight}kg • {order.location}</p>
                     </OrderInfo>
-                    <StatusBadge status={order.status}>
-                      {order.status.replace('_', ' ')}
+                    <StatusBadge $status={order.status}>
+                      {order.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </StatusBadge>
                   </OrderItem>
                 ))}
