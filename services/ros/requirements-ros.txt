@@ -1,7 +1,0 @@
-fastapi
-uvicorn[standard]
-aiokafka
-pydantic
-httpx
-# Optional Firestore support:
-google-cloud-firestore
