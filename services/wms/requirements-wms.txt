@@ -1,8 +1,0 @@
-fastapi
-uvicorn[standard]
-sqlalchemy[asyncio]
-asyncpg
-aiokafka
-pydantic
-httpx
-python-dotenv
