@@ -1,65 +1,69 @@
-from fastapi import FastAPI, Depends, HTTPException
-from enum import Enum
-from sqlalchemy import create_engine, Column, Enum as SqlEnum, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+import sqlite3
+import datetime
 
-app = FastAPI()
+app = FastAPI(title="ROS - Route Optimisation System")
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally: 
-        db.close()
+DB_NAME = "ros.db"
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+# ---------------------- Database Setup ----------------------
+def init_db():
+    conn = sqlite3.connect(DB_NAME)
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS delivery_locations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id TEXT,
+            latitude REAL,
+            longitude REAL,
+            timestamp TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+init_db()
 
-class Delivery_Status(str, Enum):
-    ON_THE_WAY = "On_The_Way"
-    DELIVERED = "Delivered"
-    RETURNED = "Returned"
+# ---------------------- Models ----------------------
+class LocationUpdate(BaseModel):
+    order_id: str
+    latitude: float
+    longitude: float
 
-class Driver(Base):
-    __tablename__ = "drivers"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
+class LocationResponse(BaseModel):
+    order_id: str
+    latitude: float
+    longitude: float
+    timestamp: str
 
-class Delivery(Base):
-    __tablename__ = "deliveries"
-    id = Column(Integer, primary_key=True, index=True)
-    order_id = Column(Integer, index=True)
-    driver_id = Column(Integer, index=True)
-    status = Column(SqlEnum(Delivery_Status), nullable=False)
+# ---------------------- Endpoints ----------------------
 
-Base.metadata.create_all(bind=engine)
+@app.post("/location/update/", response_model=LocationResponse)
+def update_location(loc: LocationUpdate):
+    conn = sqlite3.connect(DB_NAME)
+    cur = conn.cursor()
+    timestamp = datetime.datetime.utcnow().isoformat()
+    cur.execute(
+        "INSERT INTO delivery_locations (order_id, latitude, longitude, timestamp) VALUES (?, ?, ?, ?)",
+        (loc.order_id, loc.latitude, loc.longitude, timestamp)
+    )
+    conn.commit()
+    conn.close()
+    return LocationResponse(order_id=loc.order_id, latitude=loc.latitude, longitude=loc.longitude, timestamp=timestamp)
 
-class DriverCreate(BaseModel):
-    name: str
-
-class DriverResponse(BaseModel):
-    id: int
-    name: str
-
-    class Config:
-        orm_mode = True
-
-@app.post("/drivers/", response_model=DriverResponse)
-def create_user(user: DriverCreate, db: Session = Depends(get_db)):
-    db_driver = db.query(Driver).filter(Driver.name == user.name).first()
-    if db_driver:
-        raise HTTPException(status_code=400, detail="Username already exists")
-    new_driver = Driver(name=user.name)
-    db.add(new_driver)
-    db.commit()
-    db.refresh(new_driver)
-    return new_driver
-
-@app.get("/drivers/", response_model=list[DriverResponse])
-def get_drivers(db: Session = Depends(get_db)):
-    return db.query(Driver).all()
+@app.get("/location/{order_id}", response_model=LocationResponse)
+def get_location(order_id: str):
+    conn = sqlite3.connect(DB_NAME)
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT latitude, longitude, timestamp 
+        FROM delivery_locations 
+        WHERE order_id=? 
+        ORDER BY timestamp DESC LIMIT 1
+    """, (order_id,))
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Location not found")
+    return LocationResponse(order_id=order_id, latitude=row[0], longitude=row[1], timestamp=row[2])
