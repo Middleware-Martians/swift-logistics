@@ -1,0 +1,10 @@
+---
+key: "drivers-1.0.0"
+name : "drivers"
+displayName : "drivers"
+description: "drivers"
+version: "1.0.0"
+serviceUrl: "https://{MI_HOST}:{MI_PORT}/drivers"
+definitionType: "OAS3"
+securityType: "BASIC"
+mutualSSLEnabled: false
