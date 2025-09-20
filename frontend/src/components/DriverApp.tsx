@@ -248,6 +248,9 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
     setIsLoading(true);
     
     onSystemEvent({
+      type: 'system',
+      message: `${method} request to ${endpoint}`,
+      source: 'Driver App',
       service: 'Driver App',
       endpoint,
       method,
@@ -267,6 +270,9 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
       const responseData = await response.json();
       
       onSystemEvent({
+        type: response.ok ? 'delivery' : 'error',
+        message: response.ok ? `${method} request to ${endpoint} completed successfully` : `${method} request to ${endpoint} failed`,
+        source: 'Driver App',
         service: 'Driver App',
         endpoint,
         method,
@@ -279,6 +285,9 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
       return { ok: response.ok, data: responseData };
     } catch (error) {
       onSystemEvent({
+        type: 'error',
+        message: `Network error during ${method} request to ${endpoint}`,
+        source: 'Driver App',
         service: 'Driver App',
         endpoint,
         method,
@@ -488,7 +497,6 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
                     </DeliveryHeader>
                     <ActionButtons>
                       <Button 
-                        size="small"
                         onClick={() => updateLocation(delivery.order_id)}
                         disabled={isLoading}
                       >
@@ -498,7 +506,6 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
                       {delivery.status === 'On_The_Way' && (
                         <Button 
                           variant="success"
-                          size="small"
                           onClick={() => updateDeliveryStatus(delivery.order_id, 'Delivered')}
                           disabled={isLoading}
                         >

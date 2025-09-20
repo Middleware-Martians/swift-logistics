@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { Activity, ArrowRight, Database, Smartphone, Truck, MapPin } from 'lucide-react';
+import { Activity, ArrowRight, Database, Smartphone, Truck, MapPin, User } from 'lucide-react';
 import { SystemEvent } from '../App';
 
 const pulseAnimation = keyframes`
@@ -19,61 +19,63 @@ const Container = styled.div`
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
+  background: #f8fafc;
 `;
 
 const Header = styled.div`
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  padding: 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background: white;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   
   h3 {
     margin: 0;
-    color: #333;
-    font-size: 18px;
+    color: #374151;
+    font-size: 16px;
     font-weight: 600;
   }
 `;
 
 const Content = styled.div`
   flex: 1;
-  padding: 20px;
+  padding: 16px;
   overflow: hidden;
   position: relative;
 `;
 
 const SystemDiagram = styled.div`
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
-  grid-template-rows: 1fr auto 1fr;
-  gap: 20px;
-  height: 60%;
-  margin-bottom: 20px;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: auto auto auto;
+  gap: 16px;
+  height: 100%;
   position: relative;
+  align-items: center;
+  justify-items: center;
 `;
 
 const SystemComponent = styled.div<{ isActive?: boolean; position: string }>`
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 2px solid ${props => props.isActive ? '#10b981' : 'rgba(255, 255, 255, 0.3)'};
-  border-radius: 12px;
-  padding: 16px;
+  background: ${props => props.isActive ? '#3b82f6' : '#e5e7eb'};
+  border: 2px solid ${props => props.isActive ? '#1d4ed8' : '#d1d5db'};
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 80px;
+  min-height: 60px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: ${props => props.isActive ? 'white' : '#374151'};
   text-align: center;
   transition: all 0.3s ease;
   animation: ${props => props.isActive ? pulseAnimation : 'none'} 2s infinite;
   grid-column: ${props => {
     switch (props.position) {
       case 'client': return '1';
-      case 'middleware': return '2 / 4';
+      case 'driver': return '3';
+      case 'middleware': return '2';
       case 'cms': return '1';
       case 'ros': return '2';
       case 'wms': return '3';
@@ -83,6 +85,7 @@ const SystemComponent = styled.div<{ isActive?: boolean; position: string }>`
   grid-row: ${props => {
     switch (props.position) {
       case 'client': return '1';
+      case 'driver': return '1';
       case 'middleware': return '2';
       case 'cms':
       case 'ros':
@@ -93,45 +96,54 @@ const SystemComponent = styled.div<{ isActive?: boolean; position: string }>`
 `;
 
 const ComponentIcon = styled.div`
-  font-size: 24px;
-  margin-bottom: 8px;
+  font-size: 20px;
+  margin-bottom: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
 `;
 
 const ComponentLabel = styled.div`
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 `;
 
 const ComponentDescription = styled.div`
-  font-size: 10px;
+  font-size: 8px;
   opacity: 0.8;
 `;
 
 const ConnectionLine = styled.div<{ isActive?: boolean; direction: string }>`
   position: absolute;
-  background: ${props => props.isActive ? '#10b981' : 'rgba(255, 255, 255, 0.3)'};
+  background: ${props => props.isActive ? '#3b82f6' : '#d1d5db'};
   transition: all 0.3s ease;
+  z-index: 1;
   
   ${props => {
     if (props.direction === 'client-to-middleware') {
       return `
-        top: 25%;
-        left: 25%;
-        width: 25%;
-        height: 2px;
-        transform: translateY(-50%);
+        top: 33%;
+        left: 33%;
+        width: 2px;
+        height: 33%;
+        transform: translateX(-50%);
+      `;
+    } else if (props.direction === 'driver-to-middleware') {
+      return `
+        top: 33%;
+        right: 33%;
+        width: 2px;
+        height: 33%;
+        transform: translateX(50%);
       `;
     } else if (props.direction === 'middleware-to-services') {
       return `
-        top: 50%;
-        left: 25%;
-        width: 50%;
-        height: 2px;
-        transform: translateY(-50%);
+        top: 66%;
+        left: 50%;
+        width: 2px;
+        height: 33%;
+        transform: translateX(-50%);
       `;
     }
     return '';
@@ -140,71 +152,29 @@ const ConnectionLine = styled.div<{ isActive?: boolean; direction: string }>`
 
 const DataFlow = styled.div<{ isActive?: boolean }>`
   position: absolute;
-  width: 8px;
-  height: 8px;
-  background: #10b981;
+  width: 6px;
+  height: 6px;
+  background: #3b82f6;
   border-radius: 50%;
   opacity: ${props => props.isActive ? 1 : 0};
   animation: ${props => props.isActive ? flowAnimation : 'none'} 2s infinite;
-  top: 50%;
-  left: 0;
-  transform: translateY(-50%);
   z-index: 10;
+  transform: translateX(-50%) translateY(-50%);
 `;
 
-const EventLog = styled.div`
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  padding: 16px;
-  height: 40%;
-  overflow-y: auto;
-  color: white;
+const ClientDataFlow = styled(DataFlow)`
+  top: 50%;
+  left: 33%;
 `;
 
-const EventItem = styled.div<{ status: string }>`
-  background: rgba(255, 255, 255, 0.1);
-  border-left: 3px solid ${props => {
-    switch (props.status) {
-      case 'success': return '#10b981';
-      case 'error': return '#ef4444';
-      case 'pending': return '#f59e0b';
-      default: return '#6b7280';
-    }
-  }};
-  padding: 8px 12px;
-  margin-bottom: 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  animation: slideIn 0.3s ease-out;
-  
-  &:last-child {
-    margin-bottom: 0;
-  }
+const DriverDataFlow = styled(DataFlow)`
+  top: 50%;
+  right: 33%;
 `;
 
-const EventHeader = styled.div`
-  display: flex;
-  justify-content: between;
-  align-items: center;
-  margin-bottom: 4px;
-`;
-
-const EventTitle = styled.div`
-  font-weight: 600;
-  font-size: 13px;
-`;
-
-const EventTime = styled.div`
-  font-size: 11px;
-  opacity: 0.7;
-  margin-left: auto;
-`;
-
-const EventDetails = styled.div`
-  font-size: 11px;
-  opacity: 0.8;
-  line-height: 1.3;
+const MiddleDataFlow = styled(DataFlow)`
+  top: 83%;
+  left: 50%;
 `;
 
 interface SystemTrackerProps {
@@ -220,6 +190,7 @@ const SystemTracker: React.FC<SystemTrackerProps> = ({ events }) => {
       const latestEvent = events[0];
       const componentMap: { [key: string]: string[] } = {
         'Client Portal': ['client', 'middleware'],
+        'Driver App': ['driver', 'middleware'],
         'CMS': ['middleware', 'cms'],
         'ROS': ['middleware', 'ros'],
         'WMS': ['middleware', 'wms']
@@ -228,13 +199,15 @@ const SystemTracker: React.FC<SystemTrackerProps> = ({ events }) => {
       const activeSet = new Set<string>();
       const flowSet = new Set<string>();
 
-      if (componentMap[latestEvent.service]) {
-        componentMap[latestEvent.service].forEach(comp => {
+      if (latestEvent.service && componentMap[latestEvent.service]) {
+        componentMap[latestEvent.service].forEach((comp: string) => {
           activeSet.add(comp);
         });
         
         if (latestEvent.service === 'Client Portal') {
           flowSet.add('client-to-middleware');
+        } else if (latestEvent.service === 'Driver App') {
+          flowSet.add('driver-to-middleware');
         } else {
           flowSet.add('middleware-to-services');
         }
@@ -252,15 +225,6 @@ const SystemTracker: React.FC<SystemTrackerProps> = ({ events }) => {
       return () => clearTimeout(timeout);
     }
   }, [events]);
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', { 
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
 
   return (
     <Container>
@@ -280,7 +244,19 @@ const SystemTracker: React.FC<SystemTrackerProps> = ({ events }) => {
               <Smartphone size={24} />
             </ComponentIcon>
             <ComponentLabel>Client Portal</ComponentLabel>
-            <ComponentDescription>User Interface</ComponentDescription>
+            <ComponentDescription>Customer Interface</ComponentDescription>
+          </SystemComponent>
+
+          {/* Driver App */}
+          <SystemComponent 
+            isActive={activeComponents.has('driver')} 
+            position="driver"
+          >
+            <ComponentIcon>
+              <User size={24} />
+            </ComponentIcon>
+            <ComponentLabel>Driver App</ComponentLabel>
+            <ComponentDescription>Driver Interface</ComponentDescription>
           </SystemComponent>
 
           {/* Middleware */}
@@ -334,46 +310,24 @@ const SystemTracker: React.FC<SystemTrackerProps> = ({ events }) => {
             isActive={dataFlows.has('client-to-middleware')}
             direction="client-to-middleware"
           />
-          <DataFlow isActive={dataFlows.has('client-to-middleware')} />
+          <ClientDataFlow isActive={dataFlows.has('client-to-middleware')} />
+          
+          <ConnectionLine 
+            isActive={dataFlows.has('driver-to-middleware')}
+            direction="driver-to-middleware"
+          />
+          <DriverDataFlow 
+            isActive={dataFlows.has('driver-to-middleware')}
+          />
           
           <ConnectionLine 
             isActive={dataFlows.has('middleware-to-services')}
             direction="middleware-to-services"
           />
-          <DataFlow 
+          <MiddleDataFlow 
             isActive={dataFlows.has('middleware-to-services')}
-            style={{ top: '50%', left: '25%' }}
           />
         </SystemDiagram>
-
-        <EventLog>
-          <h4 style={{ margin: '0 0 12px 0', fontSize: '14px' }}>System Activity</h4>
-          {events.length === 0 ? (
-            <div style={{ opacity: 0.6, textAlign: 'center', padding: '20px 0' }}>
-              No system activity yet. Start by using the Client Portal or Driver App.
-            </div>
-          ) : (
-            events.slice(0, 10).map(event => (
-              <EventItem key={event.id} status={event.status}>
-                <EventHeader>
-                  <EventTitle>
-                    {event.service} → {event.method} {event.endpoint}
-                  </EventTitle>
-                  <EventTime>{formatTime(event.timestamp)}</EventTime>
-                </EventHeader>
-                <EventDetails>
-                  Status: {event.status.toUpperCase()}
-                  {event.requestData && (
-                    <div>Request: {JSON.stringify(event.requestData).substring(0, 50)}...</div>
-                  )}
-                  {event.responseData && (
-                    <div>Response: {JSON.stringify(event.responseData).substring(0, 50)}...</div>
-                  )}
-                </EventDetails>
-              </EventItem>
-            ))
-          )}
-        </EventLog>
       </Content>
     </Container>
   );

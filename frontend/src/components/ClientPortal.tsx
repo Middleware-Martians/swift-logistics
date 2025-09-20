@@ -204,6 +204,9 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onSystemEvent }) => {
     setIsLoading(true);
     
     onSystemEvent({
+      type: 'system',
+      message: `${method} request to ${endpoint}`,
+      source: 'Client Portal',
       service: 'Client Portal',
       endpoint,
       method,
@@ -223,6 +226,9 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onSystemEvent }) => {
       const responseData = await response.json();
       
       onSystemEvent({
+        type: response.ok ? 'order' : 'error',
+        message: response.ok ? `${method} request to ${endpoint} completed successfully` : `${method} request to ${endpoint} failed`,
+        source: 'Client Portal',
         service: 'Client Portal',
         endpoint,
         method,
@@ -235,6 +241,9 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onSystemEvent }) => {
       return { ok: response.ok, data: responseData };
     } catch (error) {
       onSystemEvent({
+        type: 'error',
+        message: `Network error during ${method} request to ${endpoint}`,
+        source: 'Client Portal',
         service: 'Client Portal',
         endpoint,
         method,

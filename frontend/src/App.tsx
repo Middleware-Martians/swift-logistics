@@ -5,42 +5,60 @@ import SystemTracker from './components/SystemTracker';
 import DriverApp from './components/DriverApp';
 import RequestViewer from './components/RequestViewer';
 import ResponseViewer from './components/ResponseViewer';
+import SystemActivities from './components/SystemActivities';
 import './App.css';
 
 const AppContainer = styled.div`
   display: grid;
-  grid-template-rows: 2fr 1fr;
+  grid-template-rows: 1fr 1fr;
   height: 100vh;
-  gap: 10px;
-  padding: 10px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  gap: 8px;
+  padding: 8px;
+  padding-top: 60px; /* Account for fixed header */
+  background: #f0f2f5;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 `;
 
 const TopRow = styled.div`
   display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 10px;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  height: 100%;
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const BottomRow = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px;
+  gap: 8px;
+  height: 100%;
+  
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+  }
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const GridItem = styled.div`
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
   overflow: hidden;
   transition: all 0.3s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 `;
 
@@ -49,24 +67,22 @@ const AppHeader = styled.header`
   top: 0;
   left: 0;
   right: 0;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-  padding: 10px 20px;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 8px 16px;
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  height: 60px;
 `;
 
 const Logo = styled.h1`
   margin: 0;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #374151;
 `;
 
 const StatusIndicator = styled.div<{ isConnected: boolean }>`
@@ -92,15 +108,47 @@ const StatusIndicator = styled.div<{ isConnected: boolean }>`
   }
 `;
 
+const ScrollHint = styled.div`
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  z-index: 999;
+  opacity: 0.8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 0.3s ease;
+  
+  &:hover {
+    opacity: 1;
+  }
+  
+  @media (max-height: 800px) {
+    display: flex;
+  }
+  
+  @media (min-height: 801px) {
+    display: none;
+  }
+`;
+
 export interface SystemEvent {
   id: string;
   timestamp: Date;
-  service: string;
-  endpoint: string;
-  method: string;
+  type: 'order' | 'delivery' | 'system' | 'error';
+  message: string;
+  source: string;
+  service?: string;
+  endpoint?: string;
+  method?: string;
   requestData?: any;
   responseData?: any;
-  status: 'pending' | 'success' | 'error';
+  status?: 'pending' | 'success' | 'error';
 }
 
 function App() {
@@ -149,10 +197,13 @@ function App() {
         </StatusIndicator>
       </AppHeader>
       
-      <AppContainer style={{ paddingTop: '70px' }}>
+      <AppContainer>
         <TopRow>
           <GridItem>
             <ClientPortal onSystemEvent={addSystemEvent} />
+          </GridItem>
+          <GridItem>
+            <DriverApp onSystemEvent={addSystemEvent} />
           </GridItem>
           <GridItem>
             <SystemTracker events={systemEvents} />
@@ -161,16 +212,20 @@ function App() {
         
         <BottomRow>
           <GridItem>
-            <DriverApp onSystemEvent={addSystemEvent} />
-          </GridItem>
-          <GridItem>
             <RequestViewer request={currentRequest} />
           </GridItem>
           <GridItem>
             <ResponseViewer response={currentResponse} />
           </GridItem>
+          <GridItem>
+            <SystemActivities events={systemEvents} />
+          </GridItem>
         </BottomRow>
       </AppContainer>
+      
+      <ScrollHint>
+        Scroll to see more ↕️
+      </ScrollHint>
     </>
   );
 }
