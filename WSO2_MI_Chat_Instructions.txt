@@ -1,0 +1,271 @@
+WSO2 MICRO INTEGRATOR - SWIFT LOGISTICS API ORCHESTRATION REQUIREMENTS
+
+SYSTEM OVERVIEW:
+================
+Three external services need orchestration through WSO2 MI:
+- CMS (localhost:8000) - Client/Order management with REST + SOAP
+- ROS (localhost:8001) - Location tracking with REST only  
+- WMS (localhost:8002) - Delivery/Driver management with REST + TCP
+
+REQUIREMENT: All WSO2 MI interfaces must use JSON input/output. Internal transformations handled by WSO2 MI.
+
+SERVICE ENDPOINTS TO INTEGRATE:
+===============================
+
+CMS SOAP ENDPOINTS (localhost:8000/soap/):
+------------------------------------------
+Same functionality as REST but requires JSON-to-SOAP transformation:
+
+8. POST /soap/clients - Create client via SOAP
+   JSON Input: {"name":"string", "password":"string"}
+   SOAP XML Request:
+   <?xml version="1.0" encoding="UTF-8"?>
+   <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope">
+     <soap:Body>
+       <CreateClientRequest>
+         <name>string</name>
+         <password>string</password>
+       </CreateClientRequest>
+     </soap:Body>
+   </soap:Envelope>
+   
+   SOAP XML Response:
+   <?xml version="1.0" encoding="UTF-8"?>
+   <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope">
+     <soap:Body>
+       <CreateClientResponse>
+         <id>integer</id>
+         <name>string</name>
+       </CreateClientResponse>
+     </soap:Body>
+   </soap:Envelope>
+   JSON Output: {"id":int, "name":"string"}
+
+9. GET /soap/clients - List clients via SOAP
+   JSON Input: none
+   SOAP XML Response:
+   <?xml version="1.0" encoding="UTF-8"?>
+   <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope">
+     <soap:Body>
+       <ClientsResponse>
+         <Client>
+           <id>integer</id>
+           <name>string</name>
+         </Client>
+         <!-- Multiple Client elements -->
+       </ClientsResponse>
+     </soap:Body>
+   </soap:Envelope>
+   JSON Output: [{"id":int, "name":"string"}]
+
+10. POST /soap/clients/login - Client login via SOAP
+    JSON Input: {"name":"string", "password":"string"}
+    SOAP XML Request:
+    <?xml version="1.0" encoding="UTF-8"?>
+    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope">
+      <soap:Body>
+        <LoginRequest>
+          <name>string</name>
+          <password>string</password>
+        </LoginRequest>
+      </soap:Body>
+    </soap:Envelope>
+    
+    SOAP XML Response:
+    <?xml version="1.0" encoding="UTF-8"?>
+    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope">
+      <soap:Body>
+        <LoginResponse>
+          <id>integer</id>
+          <name>string</name>
+          <message>Login successful</message>
+        </LoginResponse>
+      </soap:Body>
+    </soap:Envelope>
+    JSON Output: {"id":int, "name":"string", "message":"Login successful"}
+
+11. POST /soap/orders - Create order via SOAP
+    JSON Input: {"client_id":int, "weight":int, "location":"string"}
+    SOAP XML Request:
+    <?xml version="1.0" encoding="UTF-8"?>
+    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope">
+      <soap:Body>
+        <CreateOrderRequest>
+          <client_id>integer</client_id>
+          <weight>integer</weight>
+          <location>string</location>
+        </CreateOrderRequest>
+      </soap:Body>
+    </soap:Envelope>
+    
+    SOAP XML Response:
+    <?xml version="1.0" encoding="UTF-8"?>
+    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope">
+      <soap:Body>
+        <CreateOrderResponse>
+          <id>integer</id>
+          <client_id>integer</client_id>
+          <weight>integer</weight>
+          <status>On_The_Way</status>
+          <location>string</location>
+        </CreateOrderResponse>
+      </soap:Body>
+    </soap:Envelope>
+    JSON Output: {"id":int, "client_id":int, "status":"On_The_Way", "weight":int, "location":"string"}
+
+12. GET /soap/orders - List orders via SOAP (optional ?client_id=X parameter)
+    JSON Input: none or client_id parameter
+    SOAP XML Response:
+    <?xml version="1.0" encoding="UTF-8"?>
+    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope">
+      <soap:Body>
+        <OrdersResponse>
+          <Order>
+            <id>integer</id>
+            <client_id>integer</client_id>
+            <weight>integer</weight>
+            <status>On_The_Way</status>
+            <location>string</location>
+          </Order>
+          <!-- Multiple Order elements -->
+        </OrdersResponse>
+      </soap:Body>
+    </soap:Envelope>
+    JSON Output: [{"id":int, "client_id":int, "status":"string", "weight":int, "location":"string"}]
+
+SOAP TRANSFORMATION DETAILS:
+============================
+SOAP Namespace: http://schemas.xmlsoap.org/soap/envelope
+Content-Type: text/xml
+
+Request Elements:
+- CreateClientRequest (name, password)
+- LoginRequest (name, password) 
+- CreateOrderRequest (client_id, weight, location)
+
+Response Elements:
+- CreateClientResponse (id, name)
+- LoginResponse (id, name, message)
+- CreateOrderResponse (id, client_id, weight, status, location)
+- ClientsResponse (multiple Client elements with id, name)
+- OrdersResponse (multiple Order elements with id, client_id, weight, status, location)
+
+ROS ENDPOINTS (localhost:8001):
+-------------------------------
+13. POST /location/update/ - Update delivery location
+    Input: {"order_id":"string", "latitude":float, "longitude":float}
+    Output: {"order_id":"string", "latitude":float, "longitude":float, "timestamp":"ISO_string"}
+
+14. GET /location/{order_id} - Get location
+    Input: order_id in path
+    Output: {"order_id":"string", "latitude":float, "longitude":float, "timestamp":"ISO_string"}
+
+WMS ENDPOINTS (localhost:8002):
+-------------------------------
+15. POST /deliveries/ - Create delivery (assigns available driver)
+    Input: {"order_id":"string", "address":"string"}
+    Output: {"order_id":"string", "delivery_status":"on the way", "address":"string", "driver_id":"string"}
+    SIDE EFFECT: Sends TCP message to 127.0.0.1:9000
+
+16. GET /deliveries/{order_id} - Get delivery
+    Input: order_id in path
+    Output: {"order_id":"string", "delivery_status":"string", "address":"string", "driver_id":"string"}
+
+17. POST /drivers/ - Create driver
+    Input: {"driver_id":"string", "name":"string"}
+    Output: {"driver_id":"string", "name":"string", "available":true}
+
+18. GET /drivers/ - List all drivers
+    Input: none
+    Output: [{"driver_id":"string", "name":"string", "available":boolean}]
+
+19. GET /drivers/{driver_id} - Get driver by ID
+    Input: driver_id in path
+    Output: {"driver_id":"string", "name":"string", "available":boolean}
+
+20. GET /drivers/available - Get first available driver
+    Input: none
+    Output: {"driver_id":"string", "name":"string", "available":true}
+
+TCP PROTOCOL INTEGRATION:
+=========================
+WMS sends TCP messages to 127.0.0.1:9000 when deliveries are created.
+Message format: "New delivery assigned: order_id={order_id}, driver={driver_id}"
+No response expected from TCP server.
+
+ORCHESTRATION FLOWS NEEDED:
+===========================
+
+FLOW 1 - Complete Order Processing:
+1. Receive order creation request (JSON)
+2. Create order in CMS (POST /orders/)
+3. Create delivery in WMS (POST /deliveries/) - triggers driver assignment and TCP notification
+4. Return combined response to client
+
+FLOW 2 - Location Tracking:
+1. Receive location update (JSON)
+2. Update location in ROS (POST /location/update/)
+3. Optionally update order status in CMS if delivered
+4. Return success response
+
+FLOW 3 - Order Status Updates:
+1. Receive status update request (JSON)
+2. Update order status in CMS (PUT /orders/{id}/status)
+3. Return updated order details
+
+WSO2 MI MEDIATION REQUIREMENTS:
+===============================
+
+Required Mediators:
+- PayloadFactory: For JSON to SOAP XML transformations
+- Property: For extracting path parameters and headers
+- Call: For HTTP calls to external services
+- Aggregate: For combining multiple service responses
+- Log: For debugging and monitoring
+- Filter: For conditional logic and error handling
+- Switch: For routing based on request type
+
+Data Transformations:
+1. JSON to SOAP XML (for CMS SOAP endpoints)
+2. SOAP XML to JSON (for CMS SOAP responses)  
+3. HTTP to TCP protocol (for WMS notifications)
+4. Error response normalization
+
+Content Types:
+- Input: application/json
+- Output: application/json
+- CMS SOAP: text/xml
+- TCP: text/plain
+
+ERROR HANDLING:
+==============
+Common error responses to handle:
+- 400: Bad Request (invalid data, no drivers available)
+- 401: Unauthorized (invalid credentials)
+- 404: Not Found (order not found, driver not found)
+- 500: Internal Server Error
+
+Standardize all error responses to JSON format:
+{"error": "string", "detail": "string", "status_code": int}
+
+SECURITY CONSIDERATIONS:
+=======================
+- All services run on localhost (no external authentication needed)
+- CMS has basic username/password authentication
+- CORS enabled for web client integration
+- No HTTPS required (development environment)
+
+DATABASE BACKENDS:
+=================
+- CMS: SQLite (test.db)
+- ROS: SQLite (ros.db)  
+- WMS: SQLite (wms.db)
+
+DEPLOYMENT NOTES:
+================
+- Services start on different ports (8000, 8001, 8002)
+- TCP server runs on 127.0.0.1:9000
+- All services use FastAPI framework
+- SQLite databases auto-created on first run
+
+This configuration will enable WSO2 MI to orchestrate all three services with standardized JSON interfaces while handling the internal protocol transformations (REST, SOAP, TCP/IP).

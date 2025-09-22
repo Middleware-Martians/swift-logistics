@@ -29,7 +29,7 @@ function Test-Port {
 }
 
 # Check ports availability
-$ports = @(8001, 8002, 8003, 9000)
+$ports = @(8000, 8001, 8002, 9000)
 foreach ($port in $ports) {
     if (-not (Test-Port $port)) {
         Write-Host "Port $port is already in use. Please stop the service and try again." -ForegroundColor Red
@@ -40,34 +40,34 @@ foreach ($port in $ports) {
 
 try {
     # Start CMS Service on port 8001
-    Write-Host "Starting CMS (Customer Management System) on port 8001..." -ForegroundColor Yellow
+    Write-Host "Starting CMS (Customer Management System) on port 8000..." -ForegroundColor Yellow
     $cmsJob = Start-Job -ScriptBlock {
         Set-Location "$using:ScriptDir\cms"
-        python -m uvicorn app:app --reload --host 0.0.0.0 --port 8001
+        python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
     }
-    Write-Host "CMS Service Started (Job ID: $($cmsJob.Id)) on http://localhost:8001" -ForegroundColor Green
+    Write-Host "CMS Service Started (Job ID: $($cmsJob.Id)) on http://localhost:8000" -ForegroundColor Green
     
     # Wait before starting next service
     Start-Sleep -Seconds 2
     
     # Start WMS Service on port 8002
-    Write-Host "Starting WMS (Warehouse Management System) on port 8002..." -ForegroundColor Yellow
+    Write-Host "Starting WMS (Warehouse Management System) on port 8001..." -ForegroundColor Yellow
     $wmsJob = Start-Job -ScriptBlock {
         Set-Location "$using:ScriptDir\wms" 
-        python -m uvicorn app:app --reload --host 0.0.0.0 --port 8002
+        python -m uvicorn app:app --reload --host 0.0.0.0 --port 8001
     }
-    Write-Host "WMS Service Started (Job ID: $($wmsJob.Id)) on http://localhost:8002" -ForegroundColor Green
+    Write-Host "WMS Service Started (Job ID: $($wmsJob.Id)) on http://localhost:8001" -ForegroundColor Green
     
     # Wait before starting next service  
     Start-Sleep -Seconds 2
     
     # Start ROS Service on port 8003
-    Write-Host "Starting ROS (Route Optimization System) on port 8003..." -ForegroundColor Yellow
+    Write-Host "Starting ROS (Route Optimization System) on port 8002..." -ForegroundColor Yellow
     $rosJob = Start-Job -ScriptBlock {
         Set-Location "$using:ScriptDir\ros"
-        python -m uvicorn app:app --reload --host 0.0.0.0 --port 8003
+        python -m uvicorn app:app --reload --host 0.0.0.0 --port 8002
     }
-    Write-Host "ROS Service Started (Job ID: $($rosJob.Id)) on http://localhost:8003" -ForegroundColor Green
+    Write-Host "ROS Service Started (Job ID: $($rosJob.Id)) on http://localhost:8002" -ForegroundColor Green
     
     # Wait before starting next service
     Start-Sleep -Seconds 2
@@ -89,15 +89,15 @@ try {
     Write-Host "========================================" -ForegroundColor Green
     Write-Host
     Write-Host "Service Endpoints:" -ForegroundColor Cyan
-    Write-Host "- CMS (Customer Management):    http://localhost:8001"
-    Write-Host "- WMS (Warehouse Management):   http://localhost:8002"
-    Write-Host "- ROS (Route Optimization):     http://localhost:8003"
+    Write-Host "- CMS (Customer Management):    http://localhost:8000"
+    Write-Host "- WMS (Warehouse Management):   http://localhost:8001"
+    Write-Host "- ROS (Route Optimization):     http://localhost:8002"
     Write-Host "- TCP Server:                   127.0.0.1:9000"
     Write-Host
     Write-Host "API Documentation:" -ForegroundColor Cyan
-    Write-Host "- CMS Swagger UI:  http://localhost:8001/docs"
-    Write-Host "- WMS Swagger UI:  http://localhost:8002/docs"
-    Write-Host "- ROS Swagger UI:  http://localhost:8003/docs"
+    Write-Host "- CMS Swagger UI:  http://localhost:8000/docs"
+    Write-Host "- WMS Swagger UI:  http://localhost:8001/docs"
+    Write-Host "- ROS Swagger UI:  http://localhost:8002/docs"
     Write-Host
     Write-Host "Job IDs:" -ForegroundColor Cyan
     Write-Host "- CMS Job: $($cmsJob.Id)"
