@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Package, User, Clock, CheckCircle, XCircle, UserCheck, Search, RefreshCw } from 'lucide-react';
+import { SystemEvent } from '../App';
 
 const Container = styled.div`
   display: flex;
@@ -271,7 +272,11 @@ interface Driver {
   available: boolean;
 }
 
-const WarehouseManagement: React.FC = () => {
+interface WarehouseManagementProps {
+  onSystemEvent: (event: Omit<SystemEvent, 'id' | 'timestamp'>) => void;
+}
+
+const WarehouseManagement: React.FC<WarehouseManagementProps> = ({ onSystemEvent }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(false);
@@ -313,26 +318,107 @@ const WarehouseManagement: React.FC = () => {
       });
       
       if (response.ok) {
+        const result = await response.json();
+        console.log('Order borrowed successfully:', result);
         fetchOrders(); // Refresh orders
+        
+        // Show success notification
+        onSystemEvent({
+          type: 'delivery',
+          message: `Order ${orderId} borrowed successfully`,
+          source: 'Warehouse Management',
+          service: 'WMS',
+          endpoint: `/api/wms/orders/${orderId}/borrow`,
+          method: 'POST',
+          requestData: {},
+          responseData: result,
+          status: 'success'
+        });
+      } else {
+        const error = await response.json();
+        console.error('Failed to borrow order:', error);
+        onSystemEvent({
+          type: 'error',
+          message: `Failed to borrow order ${orderId}: ${error.detail || 'Unknown error'}`,
+          source: 'Warehouse Management',
+          service: 'WMS',
+          endpoint: `/api/wms/orders/${orderId}/borrow`,
+          method: 'POST',
+          requestData: {},
+          responseData: error,
+          status: 'error'
+        });
       }
     } catch (error) {
       console.error('Error borrowing order:', error);
+      onSystemEvent({
+        type: 'error',
+        message: `Error borrowing order ${orderId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        source: 'Warehouse Management',
+        service: 'WMS',
+        endpoint: `/api/wms/orders/${orderId}/borrow`,
+        method: 'POST',
+        requestData: {},
+        responseData: { error: error instanceof Error ? error.message : 'Unknown error' },
+        status: 'error'
+      });
     }
   };
 
   const assignDriver = async (orderId: string, driverId: string) => {
     try {
+      const requestData = { driver_id: driverId };
       const response = await fetch(`http://localhost:3001/api/wms/orders/${orderId}/assign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ driver_id: driverId })
+        body: JSON.stringify(requestData)
       });
       
       if (response.ok) {
+        const result = await response.json();
+        console.log('Driver assigned successfully:', result);
         fetchOrders(); // Refresh orders
+        
+        // Show success notification
+        onSystemEvent({
+          type: 'delivery',
+          message: `Driver assigned to order ${orderId}`,
+          source: 'Warehouse Management',
+          service: 'WMS',
+          endpoint: `/api/wms/orders/${orderId}/assign`,
+          method: 'POST',
+          requestData,
+          responseData: result,
+          status: 'success'
+        });
+      } else {
+        const error = await response.json();
+        console.error('Failed to assign driver:', error);
+        onSystemEvent({
+          type: 'error',
+          message: `Failed to assign driver to order ${orderId}: ${error.detail || 'Unknown error'}`,
+          source: 'Warehouse Management',
+          service: 'WMS',
+          endpoint: `/api/wms/orders/${orderId}/assign`,
+          method: 'POST',
+          requestData,
+          responseData: error,
+          status: 'error'
+        });
       }
     } catch (error) {
       console.error('Error assigning driver:', error);
+      onSystemEvent({
+        type: 'error',
+        message: `Error assigning driver to order ${orderId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        source: 'Warehouse Management',
+        service: 'WMS',
+        endpoint: `/api/wms/orders/${orderId}/assign`,
+        method: 'POST',
+        requestData: { driver_id: driverId },
+        responseData: { error: error instanceof Error ? error.message : 'Unknown error' },
+        status: 'error'
+      });
     }
   };
 

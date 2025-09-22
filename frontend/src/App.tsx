@@ -215,7 +215,7 @@ function App() {
             <RequestResponseViewer request={currentRequest} response={currentResponse} />
           </GridItem>
           <GridItem>
-            <WarehouseManagement />
+            <WarehouseManagement onSystemEvent={addSystemEvent} />
           </GridItem>
           <GridItem>
             <SystemActivities events={systemEvents} />

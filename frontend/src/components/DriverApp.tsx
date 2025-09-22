@@ -266,6 +266,18 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
     license_number: '' 
   });
 
+  // Auto-refresh deliveries when driver is logged in
+  useEffect(() => {
+    if (currentDriver && activeTab === 'deliveries') {
+      const interval = setInterval(() => {
+        console.log('Auto-refreshing deliveries for:', currentDriver.driver_id);
+        loadDeliveries(currentDriver.driver_id);
+      }, 30000); // Refresh every 30 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [currentDriver, activeTab]);
+
   const apiCall = async (endpoint: string, method: string, data?: any) => {
     setIsLoading(true);
     
@@ -370,18 +382,38 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
 
   const loadDeliveries = async (driverId: string) => {
     try {
+      console.log('Loading deliveries for driver:', driverId);
+      
       // Get all orders from WMS
       const ordersResult = await apiCall('/api/wms/orders', 'GET');
       if (!ordersResult.ok) {
         console.error('Failed to load orders:', ordersResult.data);
+        onSystemEvent({
+          type: 'error',
+          message: `Failed to load orders: ${ordersResult.data.detail || 'Unknown error'}`,
+          source: 'Driver App',
+          service: 'WMS',
+          endpoint: '/api/wms/orders',
+          method: 'GET',
+          requestData: null,
+          responseData: ordersResult.data,
+          status: 'error'
+        });
         return;
       }
       
+      console.log('All orders received:', ordersResult.data);
+      
       // Filter orders assigned to this driver
       const allOrders = ordersResult.data;
-      const driverOrders = allOrders.filter((order: any) => 
-        order.driver_id === driverId && order.status === 'assigned'
-      );
+      const driverOrders = allOrders.filter((order: any) => {
+        const isAssignedToDriver = order.driver_id === driverId;
+        const isAssignedStatus = order.status === 'assigned';
+        console.log(`Order ${order.order_id}: driver_id=${order.driver_id}, status=${order.status}, matches=${isAssignedToDriver && isAssignedStatus}`);
+        return isAssignedToDriver && isAssignedStatus;
+      });
+      
+      console.log('Filtered driver orders:', driverOrders);
       
       // Convert WMS orders to the format expected by the component
       const deliveriesWithOrders = driverOrders.map((order: any) => ({
@@ -397,7 +429,21 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
         description: order.package_info
       }));
 
+      console.log('Final deliveries to set:', deliveriesWithOrders);
       setDeliveries(deliveriesWithOrders);
+      
+      // Show success notification
+      onSystemEvent({
+        type: 'delivery',
+        message: `Loaded ${deliveriesWithOrders.length} assigned deliveries`,
+        source: 'Driver App',
+        service: 'WMS',
+        endpoint: '/api/wms/orders',
+        method: 'GET',
+        requestData: null,
+        responseData: { count: deliveriesWithOrders.length },
+        status: 'success'
+      });
     } catch (error) {
       console.error('Error loading deliveries:', error);
       // Add user-visible error notification
@@ -656,6 +702,13 @@ const DriverApp: React.FC<DriverAppProps> = ({ onSystemEvent }) => {
                 <Package size={16} />
                 My Deliveries
               </Tab>
+              <Button 
+                variant="secondary" 
+                onClick={() => currentDriver && loadDeliveries(currentDriver.driver_id)}
+                disabled={isLoading}
+              >
+                🔄 Refresh
+              </Button>
               <Button variant="secondary" onClick={handleLogout}>
                 Logout
               </Button>

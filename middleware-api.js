@@ -80,11 +80,22 @@ app.post('/api/cms/orders', async (req, res) => {
       logActivity('WMS', 'POST', '/orders', orderData, null);
       const wmsOrderResponse = await axios.post(`${WMS_BASE_URL}/orders`, orderData);
       logActivity('WMS', 'POST', '/orders', null, wmsOrderResponse.data);
+      
+      // Return combined response with WMS confirmation
+      res.json({
+        ...response.data,
+        wms_order_id: wmsOrderResponse.data.order_id,
+        wms_status: 'created'
+      });
     } catch (wmsError) {
       console.error('Failed to create order in WMS:', wmsError.message);
+      // Still return CMS response but with WMS error flag
+      res.json({
+        ...response.data,
+        wms_error: wmsError.message,
+        wms_status: 'failed'
+      });
     }
-    
-    res.json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({
       error: error.message,
@@ -278,9 +289,11 @@ app.get('/api/wms/orders', async (req, res) => {
     logActivity('WMS', 'GET', '/orders', null, response.data);
     res.json(response.data);
   } catch (error) {
+    console.error('WMS Orders fetch error:', error.message);
+    console.error('WMS Response:', error.response?.data);
     res.status(error.response?.status || 500).json({
-      error: error.message,
-      detail: error.response?.data?.detail || 'Error fetching orders'
+      error: 'Error fetching orders',
+      detail: error.response?.data?.detail || error.message
     });
   }
 });
